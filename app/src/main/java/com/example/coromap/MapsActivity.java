@@ -91,7 +91,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap = googleMap;
         mMap.setInfoWindowAdapter(this);
         mMap.setMinZoomPreference(3.3f);
-        mMap.setMaxZoomPreference(4.5f);
+        mMap.setMaxZoomPreference(5.5f);
         mMap.moveCamera(CameraUpdateFactory.zoomTo(3.55f));
 
 
@@ -131,15 +131,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public void displayMap() {
         final Map<String, Integer> mapCM = new HashMap<>();
 
+
+
         
 
         if(resp != null && mapready) {
             int size = resp.getLocations().size() - 1;
+
             for (int x = 0; x < size; x++) {
                 //Log.i("radiuscheck" , resp.getLocations().get(x).getLatest().getConfirmed()+"" );
+                double radius = Math.sqrt(resp.getLocations().get(x).getLatest().getDeaths() + resp.getLocations().get(x).getLatest().getConfirmed()) * 1000 + 50000;
+                if(radius > 225000) radius = 225000;
                 CircleOptions circleOptions = new CircleOptions()
                         .center(new LatLng(Double.parseDouble(resp.getLocations().get(x).getCoordinates().getLatitude()), Double.parseDouble(resp.getLocations().get(x).getCoordinates().getLongitude())))
-                        .radius(resp.getLocations().get(x).getLatest().getConfirmed() + 2 ) // In meters
+                        .radius(radius ) // In meters
                         .fillColor(Color.argb(100, 255, 0, 0))
                         .clickable(true)
                         .zIndex(2)
@@ -161,22 +166,25 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 mapCM.put(idcercle, x); // map >> X
             }
 
+
             mMap.setOnCircleClickListener(
                     new GoogleMap.OnCircleClickListener() {
                         @Override
                         public void onCircleClick(Circle circle) {
 
                             int x = mapCM.get(circle.getId());
+                            String title = resp.getLocations().get(x).getProvince() != "" ? resp.getLocations().get(x).getCountry() + " - " + resp.getLocations().get(x).getProvince() : resp.getLocations().get(x).getCountry();
                             Marker displaymarker = mMap.addMarker(
                                     new MarkerOptions()
                                             .position(new LatLng(Double.parseDouble(resp.getLocations().get(x).getCoordinates().getLatitude()), Double.parseDouble(resp.getLocations().get(x).getCoordinates().getLongitude())))
                                             .visible(true)
                                             .alpha(0)
                                             .zIndex(-1)
-                                            .title(resp.getLocations().get(x).getCountry())
+                                            .title(title)
                                             .infoWindowAnchor(0.5f,1f)
 
-                                            .snippet("Mort : "+resp.getLocations().get(x).getLatest().getDeaths() + System.getProperty("line.separator") + "tetetete")
+                                            .snippet("Confirmed : "+resp.getLocations().get(x).getLatest().getConfirmed() + System.getProperty("line.separator") +
+                                                    "Mort : "+resp.getLocations().get(x).getLatest().getDeaths() + System.getProperty("line.separator"))
 
                             );
                             markerList.add(displaymarker);

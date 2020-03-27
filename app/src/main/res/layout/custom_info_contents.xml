@@ -30,7 +30,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="TEST"
-            android:textSize="14dp"
+            android:textSize="18dp"
             android:textStyle="bold" />
 
         <TextView
@@ -38,7 +38,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="TEST2"
-            android:textSize="10dp" />
+            android:textSize="16dp" />
 
     </LinearLayout>
 
