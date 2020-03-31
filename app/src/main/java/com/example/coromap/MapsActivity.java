@@ -1,12 +1,18 @@
 package com.example.coromap;
 
+import androidx.annotation.RequiresApi;
 import androidx.fragment.app.FragmentActivity;
 import androidx.room.Room;
 
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.res.Resources;
+import android.database.Cursor;
+import android.database.CursorIndexOutOfBoundsException;
+import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -18,6 +24,9 @@ import android.widget.Toast;
 import com.example.coromap.core.APIResponse;
 import com.example.coromap.dao.AppDatabase;
 import com.example.coromap.mapper.APIResponseM;
+import com.example.coromap.mapper.CoordinatesM;
+import com.example.coromap.mapper.LatestM;
+import com.example.coromap.mapper.PaysM;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
@@ -31,11 +40,15 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.lang.reflect.Array;
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -51,30 +64,52 @@ import okhttp3.Response;
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.InfoWindowAdapter {
 
     private GoogleMap mMap;
-    AppDatabase db;
+    SQLiteDatabase db;
     APIResponseM resp;
+    String act;
+    ArrayList<PaysM> datarep = new ArrayList<PaysM>();
     boolean mapready = false;
     final ArrayList<Marker> markerList = new ArrayList<Marker>();
 
-
-
+    @RequiresApi(api = Build.VERSION_CODES.O)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
-        db = Room.databaseBuilder(getApplicationContext(),
-                AppDatabase.class, "CoroMapDB").build();
 
-        getCorinfo();
+        db = new MyOpenHelper(this).getWritableDatabase();
+
+        String hour = "";
+        Cursor c = db.rawQuery("SELECT datehour FROM response ", null);
+        if (c.moveToLast()) { hour = c.getString(0); }
+
+        if(hour == "") {
+            act = "corinfo"; //getCorinfo();
+        } else if (ChronoUnit.HOURS.between(LocalDateTime.parse(hour), LocalDateTime.now()) > 1 ) {
+            Log.i("testselect", "VICTORY");
+            act = "corinfo"; //getCorinfo();
+        } else {
+            act = "load"; //loadData(); // recup info de bdd
+        }
+        c.close();
+        db.close();
+
+        FloatingActionButton floatingActionButton = findViewById(R.id.button1);
+        floatingActionButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.i("floating", "works");
+                Intent intent = new Intent(MapsActivity.this , StatsActivity.class );
+                startActivity(intent);
+            }
+        });
+
+
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
-
-
-
     }
-
 
     /**
      * Manipulates the map once available.
@@ -94,8 +129,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.setMaxZoomPreference(5.5f);
         mMap.moveCamera(CameraUpdateFactory.zoomTo(3.55f));
 
-
-
         try {
             // Customise the styling of the base map using a JSON object defined
             // in a raw resource file.
@@ -108,42 +141,22 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         } catch (Resources.NotFoundException e) {
             Log.e("style", "Can't find style. Error: ", e);
         }
+        if(act == "load") { loadData(); } else { getCorinfo(); }
 
-        displayMap();
-
-        // Add a marker in Sydney and move the camera
-        //LatLng sydney = new LatLng(46.2, 2.2);
-        // Instantiates a new CircleOptions object and defines the center and radius
-        /*CircleOptions circleOptions = new CircleOptions()
-                .center(new LatLng(46.2, 2.2))
-                .radius(1000000) // In meters
-                .fillColor(Color.argb(100, 255, 0, 0))
-                .strokeWidth(0);
-
-        // Get back the mutable Circle
-        Circle circle = mMap.addCircle(circleOptions);
-        */
-        //mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-        //mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
     }
 
 
     public void displayMap() {
         final Map<String, Integer> mapCM = new HashMap<>();
-
-
-
-        
-
-        if(resp != null && mapready) {
-            int size = resp.getLocations().size() - 1;
-
+        if(datarep.size() != 0 && mapready) {
+            int size = datarep.size();
             for (int x = 0; x < size; x++) {
+
                 //Log.i("radiuscheck" , resp.getLocations().get(x).getLatest().getConfirmed()+"" );
-                double radius = Math.sqrt(resp.getLocations().get(x).getLatest().getDeaths() + resp.getLocations().get(x).getLatest().getConfirmed()) * 1000 + 50000;
+                double radius = Math.sqrt(datarep.get(x).getLatest().getDeaths() + datarep.get(x).getLatest().getConfirmed()) * 1000 + 50000;
                 if(radius > 225000) radius = 225000;
                 CircleOptions circleOptions = new CircleOptions()
-                        .center(new LatLng(Double.parseDouble(resp.getLocations().get(x).getCoordinates().getLatitude()), Double.parseDouble(resp.getLocations().get(x).getCoordinates().getLongitude())))
+                        .center(new LatLng(Double.parseDouble(datarep.get(x).getCoordinates().getLatitude()), Double.parseDouble(datarep.get(x).getCoordinates().getLongitude())))
                         .radius(radius ) // In meters
                         .fillColor(Color.argb(100, 255, 0, 0))
                         .clickable(true)
@@ -153,19 +166,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 // Get back the mutable Circle
                 Circle circle = mMap.addCircle(circleOptions);
 
-                /*final Marker marker = mMap.addMarker(
-                        new MarkerOptions()
-                            .position(new LatLng(Double.parseDouble(resp.getLocations().get(x).getCoordinates().getLatitude()), Double.parseDouble(resp.getLocations().get(x).getCoordinates().getLongitude())))
-                            .visible(false)
-                            .alpha(0)
-                            .title(resp.getLocations().get(x).getCountry())
-                            .snippet("Mort : "+resp.getLocations().get(x).getLatest().getDeaths())
-                );*/
-
                 String idcercle = circle.getId();
                 mapCM.put(idcercle, x); // map >> X
             }
-
 
             mMap.setOnCircleClickListener(
                     new GoogleMap.OnCircleClickListener() {
@@ -173,18 +176,19 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         public void onCircleClick(Circle circle) {
 
                             int x = mapCM.get(circle.getId());
-                            String title = resp.getLocations().get(x).getProvince() != "" ? resp.getLocations().get(x).getCountry() + " - " + resp.getLocations().get(x).getProvince() : resp.getLocations().get(x).getCountry();
+                            String title = !datarep.get(x).getProvince().isEmpty() ? datarep.get(x).getCountry() + " - " + datarep.get(x).getProvince() : datarep.get(x).getCountry();
+
                             Marker displaymarker = mMap.addMarker(
                                     new MarkerOptions()
-                                            .position(new LatLng(Double.parseDouble(resp.getLocations().get(x).getCoordinates().getLatitude()), Double.parseDouble(resp.getLocations().get(x).getCoordinates().getLongitude())))
+                                            .position(new LatLng(Double.parseDouble(datarep.get(x).getCoordinates().getLatitude()), Double.parseDouble(datarep.get(x).getCoordinates().getLongitude())))
                                             .visible(true)
                                             .alpha(0)
                                             .zIndex(-1)
                                             .title(title)
                                             .infoWindowAnchor(0.5f,1f)
 
-                                            .snippet("Confirmed : "+resp.getLocations().get(x).getLatest().getConfirmed() + System.getProperty("line.separator") +
-                                                    "Mort : "+resp.getLocations().get(x).getLatest().getDeaths() + System.getProperty("line.separator"))
+                                            .snippet("Confirmed : "+datarep.get(x).getLatest().getConfirmed() + System.getProperty("line.separator") +
+                                                    "Mort : "+datarep.get(x).getLatest().getDeaths() + System.getProperty("line.separator"))
 
                             );
                             markerList.add(displaymarker);
@@ -203,7 +207,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             if(markerList != null) {
                                 for (Marker marker: markerList) {
                                     marker.remove();
-
                                 }
                                 markerList.clear();
                             }
@@ -223,6 +226,61 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
+    public void loadData() {
+        db = new MyOpenHelper(this).getWritableDatabase();
+        Cursor c = db.rawQuery("SELECT pays.country, pays.countrycode, pays.province, coordinates.lat, coordinates.long, latestcases.confirmed, latestcases.death, latestcases.recovered, paysupdate.countrypop, paysupdate.lastupdated " +
+                "FROM response " +
+                "INNER JOIN paysupdate ON paysupdate.idresp = id_response " +
+                "INNER JOIN pays ON pays.id_pays = paysupdate.idpays " +
+                "INNER JOIN coordinates ON pays.idcoord = coordinates.id_coord " +
+                "INNER JOIN latestcases ON paysupdate.idlatest = latestcases.id_latest", null);
+
+        if (c.moveToFirst()){
+            PaysM pays;
+            CoordinatesM coord;
+            LatestM latest;
+            do {
+                pays = new PaysM();
+                coord = new CoordinatesM();
+                latest = new LatestM();
+
+                //SET COORD
+                coord.setLatitude(String.valueOf(c.getInt(3)));
+                coord.setLongitude(String.valueOf(c.getInt(4)));
+                pays.setCoordinates(coord);
+
+                //SET LATEST
+                latest.setConfirmed(c.getInt(5));
+                latest.setDeaths(c.getInt(6));
+                latest.setRecovered(c.getInt(7));
+                pays.setLatest(latest);
+
+                //SET ALL THE THINGS
+                pays.setCountry(c.getString(0));
+                pays.setCountry_code(c.getString(1));
+                pays.setProvince(c.getString(2));
+                pays.setLast_updated(c.getString(9));
+                pays.setCountry_population(c.getInt(8));
+
+                datarep.add(pays);
+                Log.i("tPays", ""+c.getString(0) );
+                Log.i("tPays", ""+c.getString(1) );
+                Log.i("tPays", ""+c.getInt(3) );
+
+
+            } while(c.moveToNext());
+        }
+        c.close();
+        db.close();
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                displayMap();
+            }
+        });
+    }
+
     public void getCorinfo() {
         OkHttpClient client = new OkHttpClient();
         Request request = new Request.Builder()
@@ -235,6 +293,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Toast.makeText(MapsActivity.this, "Erreur réseau :(", Toast.LENGTH_LONG).show();
             }
 
+            @RequiresApi(api = Build.VERSION_CODES.O)
             @Override
             public void onResponse(@NotNull Call call, @NotNull Response response) throws IOException {
 
@@ -242,19 +301,80 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
                 ObjectReader reader = mapper.reader().forType(APIResponseM.class);
                 resp = reader.readValue(response.body().string()); // Creer lobjet
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        displayMap();
-                    }
-                });
 
-                Log.i("coro89", ""+resp.getLocations().get(237).getCoordinates().getLatitude());
-                Log.i("coro89", ""+resp.getLocations().get(236).getCoordinates().getLatitude());
-                //mapper.readTree(response.body().string()).get("departures").get(2).get());
-                //db.infoDao().insertAPIResponse(resp);
-                //db.displayDao().insertDisplayInformations(resp.getDepartures().get(2).getDisplayInformations());
-                //Log.i("dbtest", db.infoDao().getAll() +"");
+                db = new MyOpenHelper(MapsActivity.this).getWritableDatabase();
+                ContentValues content;
+
+                //latestall
+                content = new ContentValues();
+                content.put("confirmed" , resp.getLatest().getConfirmed());
+                content.put("death" , resp.getLatest().getDeaths());
+                content.put("recovered" , resp.getLatest().getRecovered());
+                long idlatestall = db.insert("latestcases", null, content);
+
+                Cursor c = db.rawQuery("SELECT * FROM latestcases", null);
+                if (c.moveToLast()) {
+                    Log.i("testselect", "1 ||"+ c.getString(0)); // id
+                    Log.i("testselect", "2 ||"+ c.getString(1)); // confirmer
+                    Log.i("testselect", "3 ||"+ c.getString(2)); // death
+                }
+
+                //response
+                content = new ContentValues();
+                content.put("datehour" , LocalDateTime.now().toString());
+                content.put("idlatestall" , Math.toIntExact(idlatestall));
+                long idresp = db.insert("response", null, content);
+
+                int size = resp.getLocations().size() ;
+                long idpays;
+
+                for (int x = 0; x < size ; x++) {
+                    Cursor cursor;
+                    cursor = db.rawQuery("SELECT id FROM pays WHERE id = ?", new String[] {String.valueOf(resp.getLocations().get(x).getId())});
+
+                    if (cursor.moveToLast()) { //means the entry exist as a pays then no need to duplicate it
+                        //Log.i("testselect", "NA "+ cursor.getString(0)); // id
+                        idpays = Long.parseLong(c.getString(0));
+                    } else { // create the data for the country
+
+                        //coordinates
+                        content = new ContentValues();
+                        content.put("long" , resp.getLocations().get(x).getCoordinates().getLongitude());
+                        content.put("lat" , resp.getLocations().get(x).getCoordinates().getLatitude());
+                        long idcoord = db.insert("coordinates", null, content);
+
+                        //pays
+                        content = new ContentValues();
+                        content.put("country" , resp.getLocations().get(x).getCountry());
+                        content.put("countrycode" , resp.getLocations().get(x).getCountry_code());
+                        content.put("province", resp.getLocations().get(x).getProvince());
+                        content.put("id", resp.getLocations().get(x).getId());
+                        content.put("idcoord", idcoord);
+                        idpays = db.insert("pays", null, content);
+                    }
+
+                    //latestcountry
+                    content = new ContentValues();
+                    content.put("confirmed" , resp.getLocations().get(x).getLatest().getConfirmed());
+                    content.put("death" , resp.getLocations().get(x).getLatest().getDeaths());
+                    content.put("recovered" , resp.getLocations().get(x).getLatest().getRecovered());
+                    long idlatestcountry = db.insert("latestcases", null, content);
+
+
+                    //paysupdate
+                    content = new ContentValues();
+                    content.put("countrypop" , resp.getLocations().get(x).getCountry_population());
+                    content.put("lastupdated" , resp.getLocations().get(x).getLast_updated());
+                    content.put("idresp", idresp);
+                    content.put("idlatest", idlatestcountry);
+                    content.put("idpays", idpays);
+                    long idpaysupdt = db.insert("paysupdate", null, content);
+
+                    cursor.close();
+                }
+
+                db.close();
+                loadData();
             }
         });
     }
@@ -272,41 +392,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private View prepareInfoView(Marker marker){
-        //prepare InfoView programmatically
-/* infoView = new LinearLayout(MapsActivity.this);
 
-        LinearLayout.LayoutParams infoViewParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        infoView.setOrientation(LinearLayout.HORIZONTAL);
-
-        infoView.setLayoutParams(infoViewParams);
-
-        ImageView infoImageView = new ImageView(MapsActivity.this);
-        //Drawable drawable = getResources().getDrawable(R.mipmap.ic_launcher);
-        Drawable drawable = getResources().getDrawable(android.R.drawable.ic_dialog_map);
-        infoImageView.setImageDrawable(drawable);
-        infoView.addView(infoImageView);
-
-        LinearLayout subInfoView = new LinearLayout(MapsActivity.this);
-        LinearLayout.LayoutParams subInfoViewParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        subInfoView.setOrientation(LinearLayout.VERTICAL);
-        subInfoView.setLayoutParams(subInfoViewParams);
-
-        TextView subInfoLat = new TextView(MapsActivity.this);
-        subInfoLat.setText(marker.getTitle());
-        TextView subInfoLnt = new TextView(MapsActivity.this);
-        subInfoLnt.setText("Lnt: " + marker.getPosition().longitude);
-        subInfoView.addView(subInfoLat);
-        subInfoView.addView(subInfoLnt);
-        infoView.addView(subInfoView);
-
-
-
-        return infoView;
-
-
- */
         View myContentsView = getLayoutInflater().inflate(R.layout.custom_info_contents, null);
         TextView tvTitle = ((TextView)myContentsView.findViewById(R.id.title));
         tvTitle.setText(marker.getTitle());
@@ -314,9 +400,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         tvSnippet.setText(marker.getSnippet());
 
         return myContentsView;
-
-
-        //return getLayoutInflater().inflate(R.layout.custom_info_contents, null);
 
     }
 }
