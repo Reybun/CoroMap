@@ -3,14 +3,14 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:background="#62def8">
+    android:background="@drawable/border">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerInParent="true"
-        android:layout_margin="30dp"
-        android:textSize="22sp"
-        android:text="Problème de connection."/>
+        android:layout_margin="20dp"
+        android:textSize="26sp"
+        android:text="Problème de connection. \nReessayer plus tard" />
 
 </RelativeLayout>

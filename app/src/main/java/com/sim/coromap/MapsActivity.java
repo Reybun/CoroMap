@@ -183,7 +183,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                                             .title(title)
                                             .infoWindowAnchor(0.5f,1f)
 
-                                            .snippet("Confirmed : "+datarep.get(x).getLatest().getConfirmed() + System.getProperty("line.separator") +
+                                            .snippet("Infectés : "+datarep.get(x).getLatest().getConfirmed() + System.getProperty("line.separator") +
                                                     "Mort : "+datarep.get(x).getLatest().getDeaths() + System.getProperty("line.separator"))
 
                             );
@@ -416,7 +416,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     @Override
     public View getInfoWindow(Marker marker) {
-        //return null;
         return prepareInfoView(marker);
     }
 
