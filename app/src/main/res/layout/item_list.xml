@@ -2,41 +2,47 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical" android:layout_width="match_parent"
     android:background="@drawable/selector2"
+    android:fontFamily="@font/kol"
     android:layout_height="wrap_content">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:weightSum="10.5">
+       >
 
         <TextView
             android:id="@+id/nb"
-            android:layout_width="wrap_content"
+            android:layout_width="40dp"
             android:gravity="center"
-            android:layout_height="50dp"
+            android:layout_height="60dp"
+            android:fontFamily="@font/kolbold"
             android:text="nb"
             android:textSize="18sp"
-            android:layout_weight="1.5"/>
+            />
         <TextView
             android:id="@+id/pays"
-            android:layout_width="wrap_content"
+            android:layout_width="155dp"
             android:layout_height="wrap_content"
+            android:fontFamily="@font/kolbold"
             android:text="pays"
             android:textSize="18sp"
-            android:layout_weight="5"/>
+
+            />
         <TextView
             android:id="@+id/mort"
-            android:layout_width="wrap_content"
+            android:layout_width="70dp"
             android:layout_height="wrap_content"
             android:text="0 mort"
+            android:fontFamily="@font/kolbold"
             android:textSize="18sp"
             android:layout_weight="2"/>
         <TextView
             android:id="@+id/infected"
-            android:layout_width="wrap_content"
+            android:layout_width="60dp"
             android:layout_height="wrap_content"
-            android:text="0 infecte"
+            android:text="0 INFECTES"
+            android:fontFamily="@font/kol"
             android:layout_weight="2"/>
 
     </LinearLayout>
